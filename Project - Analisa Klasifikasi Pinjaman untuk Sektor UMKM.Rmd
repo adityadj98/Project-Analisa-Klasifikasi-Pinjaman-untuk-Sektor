@@ -1,0 +1,489 @@
+---
+title: "Project: Analisa Klasifikasi Pinjaman untuk Sektor UMKM"
+author: "ADTYA D JATI"
+date: " AUGUST 2022"
+output: html_notebook
+
+Notes : This is R Notebook, to run the script, just click the green right error button or (ctrl + shift + enter)
+---
+
+---
+
+## 1. Pendahuluan
+
+#### 1.1 Pengantar
+Perusahaan `ADITYADJ` merupakan perusahaan yang bergerak di bidang layanan pinjaman usaha bagi sektor UMKM. Karena adanya pandemik ini, perusahaan berusaha memberikan pelayanan berupa keringanan pinjaman bagi pelanggan yang disebut sebagai __rekomendasi tindak lanjut__. Pemberian rekomendasi tindak lanjut pada pelanggan ini didasari pada kriteria tertentu, dan perlu ditentukan faktor-faktor apa saja yang berpengaruh sehingga pelanggan mendapatkan *treatment* tertentu yang masuk dalam rekomendasi tindak lanjut program dari perusahaan.
+
+**Tujuan Project**:
+
+- Klasifikasi nasabah yang akan dimasukkan pada rekomendasi tindak lanjut. Pada kelas target rekomendasi tindak lanjut ini sendiri terdiri dari beberapa kelas seperti restrukturisasi dan angsuran biasa.
+
+**Model**:
+
+- Regresi multinomial.
+
+**Referensi model (Ref)**:
+
+- Kelas pada rekomendasi tindak lanjut yang memiliki banyak pelanggan.
+
+**Data**:
+
+- Data yang digunakan terdiri dari 1000 baris.
+
+Tujuan Pembelajaran dari Project ini:
+
+- Memahami dasar-dasar *syntax* `R` untuk keperluan statistika dasar dan dasar-dasar *machine learning*.
+- Memberikan gambaran secara umum pemodelan dengan menggunakan `R`.
+ 
+
+**Catatan** : Apabila ingin melakukan eksplorasi pada `R` yang terpasang pada komputer, dapat ditambahkan perintah `setwd("path file tempat kamu bekerja")` pada tiap baris pertama *editor* di `R-Studio` kamu.
+
+
+#### 1.2 Membaca Data External
+Hal yang pertama dilakukan adalah membaca [*dataset*](https://storage.googleapis.com/dqlab-dataset/project.csv) yang telah dipersiapkan. Dengan menggunakan fungsi bawaan `R` bacalah *dataset* yang berformat `csv` tersebut !
+
+Begini :
+```{r}
+#membuat variabel dataset
+ADITYADJ = read.csv("https://storage.googleapis.com/dqlab-dataset/project.csv")
+
+```
+
+
+#### 1.3 Inspeksi Data
+Setelah data berhasil di *import*, cobalah kamu untuk menginspeksi dataset dengan jalan:
+
+1. Melihat beberapa baris pertama data tersebut, apa saja yang ditunjukkannya dan
+2. Tampilkan tipe data dari setiap kolom.
+
+Begini :
+```{r}
+# Enam baris teratas data
+head(ADITYADJ, 9)
+# Tampilkan tipe data setiap kolomnya
+str(ADITYADJ)
+```
+
+
+#### 1.4 Statistik Deskriptif Data
+Melalui `R` kita dapat menampilkan statistik deskriptif pada data yang dimiliki. Jika diinginkan lebih spesifik maka dapat dilakukan pada kolom tertentu pada tabel data yang kita punya. Tentunya kita dapat menggunakan *accessor* `$` untuk memilih kolom yang diinginkan dari data. 
+
+Begini :
+```{r}
+summary(ADITYADJ$OSL)
+```
+
+Kamu ingin menampilkan statistik deskriptif untuk seluruh kolom.
+
+Begini :
+```{r}
+summary(ADITYADJ)
+```
+
+
+#### 1.5 Menghapus Kolom
+Pada data yang kamu miliki, sebenarnya kamu tidak memerlukan `NAMA_NASABAH` untuk diberikan rekomendasi. Atau dengan kata lain penanda pelanggan untuk diberikan rekomendasi cukup dengan melihat `NOMOR_KONTRAK` pelanggan itu saja.
+
+Hapuslah kolom `X` dan `NAMA_NASABAH` pada data yang kamu miliki dan cetak kembali nama kolom yang tersedia pada data.
+
+Begini :
+```{r}
+#menghapus kolom yang tidak diperlukan
+data.guna = ADITYADJ[-c(1,2)]
+
+#menampilkan nama kolom
+colnames(data.guna)
+```
+
+
+#### 1.6 Konversi Data
+Seperti yang diketahui ketika data ditarik dari suatu sumber terkadang ada kondisi tipe data tidak dengan tepat direpresentasikan. Misalkan semua *record*/baris pada suatu kolom berisi seharusnya data numerik akan tetapi disajikan didalam suatu karakter angka.
+
+`R` sendiri memiliki fungsi *sapply* yang dapat digunakan untuk mengkoversi tipe data. Dalam hal ini fungsi *sapply* menerima *input*/argumen fungsi berupa *list*, *vector*, atau *data.frame* dan mengembalikan/menghasilkan *output* berupa *vector* atau *matrix*.
+
+Cobalah untuk meninjau kembali kolom `PRODUK`, `PYD`, `TENOR`, dan `OSL` apakah perlu dikonversikan menjadi bertipe numerik atau tidak.
+
+Begini :
+```{r}
+cek.1 <- data.guna[, 8:11]
+head(cek.1, 9)
+```
+
+
+#### 1.7 Pemilihan Data Kategorik
+Tentu saja kamu menyadari bahwa data yang dimiliki ada yang bersifat kategorik. Data kategorik dapat dipilih melalui kolom-kolom `KONDISI_USAHA`, `KONDISI_JAMINAN`, `REKOMENDASI_TINDAK_LANJUT`.
+
+Begini :
+```{r}
+AL.Loan_kategorik = data.guna[,c("KONDISI_USAHA", "KONDISI_JAMINAN", "REKOMENDASI_TINDAK_LANJUT")]
+head(AL.Loan_kategorik, 9)
+```
+
+Mengubah kolom `REKOMENDASI_TINDAK_LANJUT` sebagai faktor (menggunakan `as.factor`)
+
+Begini :
+```{r}
+data.guna$REKOMENDASI_TINDAK_LANJUT = as.factor(data.guna$REKOMENDASI_TINDAK_LANJUT)
+
+str(data.guna$REKOMENDASI_TINDAK_LANJUT)
+```
+
+Uji *chi-square* dapat digunakan untuk melihat hubungan antar variabel kategorik.
+
+Begini :
+```{r warning = FALSE}
+#melihat hubungan KONDISI_USAHA dengan REKOMENDASI_TINDAK_LANJUT
+chisq.test(AL.Loan_kategorik$KONDISI_USAHA, AL.Loan_kategorik$REKOMENDASI_TINDAK_LANJUT)
+
+#melihat hubungan KONDISI_JAMINAN dengan REKOMENDASI_TINDAK_LANJUT
+chisq.test(AL.Loan_kategorik$KONDISI_JAMINAN, AL.Loan_kategorik$REKOMENDASI_TINDAK_LANJUT)
+```
+Jika nilai `p` `< 0.05`, maka tolak H0 (tidak ada hubungan antar variabel). Tampak dari hasil kalau nilai `p < 0.05`, artinya ada hubungan antara kedua kolom dengan `REKOMENDASI_TINDAK_LANJUT`
+
+
+#### 1.8 Korelasi antar Variabel Data
+Selain melihat hubungan pada data yang bersifat kategorikal, kita juga bisa melihat hubungan antar variabel numerikal. Ya. Kita akan menggunakan korelasi.
+
+Begini :
+```{r warning = FALSE}
+library("corrplot")
+library("ggcorrplot")
+
+M = data_reduce[,8:11]
+
+# Library corrplot
+# -- Pearson correlation
+par(mfrow=c(1,1))
+corrplot(cor(M), type="upper", order="hclust")
+corrplot(cor(M), method="square", type="upper")
+corrplot(cor(M), method="number", type="lower")
+corrplot(cor(M), method="ellipse")
+
+# -- Kendall correlation
+par(mfrow=c(1,1))
+corrplot(cor(M, method="kendall"), type="upper", order="hclust")
+corrplot(cor(M, method="kendall"), method="square", type="upper")
+corrplot(cor(M, method="kendall"), method="number", type="lower")
+corrplot(cor(M, method="kendall"), method="ellipse")
+# Library ggcorrplot
+corr = round(cor(M), 1) # Pearson correlation
+ggcorrplot(round(cor(M), 1),
+             hc.order = TRUE,
+             type = "lower",
+             lab = TRUE,
+             lab_size = 3,
+             method="circle",
+             colors = c("tomato2", "white", "springgreen3"),
+             title="Correlogram of Data Nasabah",
+             ggtheme=theme_bw)
+```
+
+
+---
+
+## 2. Pemilihan Variabel
+
+#### 2.1 Pemilihan Fitur (*Independent Variable/Input*)
+Dalam melakukan pemodelan tentu kita perlu meninjau variabel-variabel apa saja yang berpengaruh pada model kita, khususnya pada klasifikasi. Pada kesempatan ini kita menggunakan model **Regresi Multinomial**.
+
+Lalu bagaimana menentukan variabel apa saja yang berpengaruh tersebut?
+
+Ada banyak alternatif, salah satunya ialah **Information Gain**. Melalui *information gain* diambil nilai *importance variable* yang lebih dari `0.02` (kamu dapat eksplorasi apa yang terjadi apabila kita mengambil nilai yang kurang dari `0.02`).
+
+Berikut hasil dari *information gain*:
+```                
+                  attr_importance
+KONDISI_JAMINAN     0.038889946
+STATUS              0.109539204
+KEWAJIBAN           0.002414449
+OSL                 0.006693011
+KOLEKTIBILITAS      0.084934084
+
+```
+
+Lakukanlah *syntax* untuk memilih kolom-kolom yang akan diproses !
+
+Begini :
+```{r}
+colnames(data.guna)
+
+#memilih kolom yang akan diproses
+data.pilih =
+data.guna[,c("KARAKTER","KONDISI_USAHA","KONDISI_JAMINAN","STATUS","KEWAJIBAN","OSL","KOLEKTIBILITAS","REKOMENDASI_TINDAK_LANJUT")]
+```
+Jika pada data terdapat `NA` *value*, nilai tersebut dapat pula untuk dipangkas.
+
+Begini :
+```{r}
+data.non.na = na.omit(data.pilih)
+head(data.non.na, 9)
+```
+
+
+#### 2.2 Transformasi Data
+Untuk memberikan performa model yang baik,  maka pada data kita perlu dilakukan *treatment* tertentu, misalnya dilakukan *scalling* atau dilakukan pengelompokan data atau disebut juga *bucketing*.
+
+Begini :
+```{r}
+data.pilih.baru = data.pilih
+data.pilih.baru$KEWAJIBAN = scale(data.pilih.baru$KEWAJIBAN)[, 1]
+data.pilih.baru$OSL = scale(data.pilih.baru$OSL)[, 1]
+data.pilih.baru$KEWAJIBAN = cut(data.pilih.baru$KEWAJIBAN, breaks = c(-0.354107,5,15,30))
+data.pilih.baru$KEWAJIBAN = as.factor(data.pilih.baru$KEWAJIBAN)
+data.pilih.baru$OSL = cut(data.pilih.baru$OSL, breaks = c(-0.60383,3,10,15))
+data.pilih.baru$OSL = as.factor(data.pilih.baru$OSL)
+data.pilih.baru = na.omit(data.pilih.baru)
+
+head(data.pilih.baru, 9)
+```
+
+
+
+#### 2.3 *Training* Data
+Sebelum masuk pada pemodelan, kita perlu memisahkan data kita menjadi *training* dan *testing* (ada pula yang membaginya menjadi *training*, *testing*, dan validasi).
+
+Tujuan dari pemisahan data ini ialah untuk melihat kemampuan model kita untuk melakukan prediksi sebagaimana tujuan dari pemodelan kita.
+
+Begini :
+```{r}
+library("caret")
+library("lattice")
+
+index = createDataPartition(data.pilih.baru$REKOMENDASI_TINDAK_LANJUT, p = .95, list = FALSE)
+training = data.pilih.baru[index, ]
+testing = data.pilih.baru[-index, ]
+
+dim(training)
+dim(testing)
+```
+
+
+#### 2.4 Pemodelan (*Modelling*)
+Sekarang kita siap untuk masuk pada pemodelan.
+
+Ingat bahwa kita menggunakan **Model Regresi Multinomial**, dimana kita perlu menentukan referensi dari kelas target.
+
+Referensi kelas target ini ialah kelas yang memiliki jumlah anggota terbanyak.
+
+Begini :
+```{r warning = FALSE}
+train2 = training
+# Setting the reference
+train2$REKOMENDASI_TINDAK_LANJUT = relevel(train2$REKOMENDASI_TINDAK_LANJUT, ref = "Angsuran Biasa")
+# training the model
+require(nnet)
+# Training the multinomial model
+multinom_model = multinom(REKOMENDASI_TINDAK_LANJUT ~ ., data = train2)
+
+
+# Checking the model
+summary(multinom_model)
+#converting the coefficients to odds by taking the exponential of the coefficients.
+exp(coef(multinom_model))
+head(round(fitted(multinom_model), 2))
+# Predicting the values for train dataset
+train2$ClassPredicted = predict(multinom_model, newdata = train2, "class")
+train_prob = predict(multinom_model, newdata = train2, "probs")
+df = train_prob
+df$max=apply(df,1, max)
+train2$score = df$max
+test_prob = predict(multinom_model, newdata = testing, "probs")
+df2 = test_prob
+df2$max=apply(df2,1, max)
+```
+
+Untuk keperluan tertentu, kita perlu mengetahui peluang dari tiap baris data (perwakilan dari pelanggan) untuk masuk pada kelas target tertentu.
+
+Tujuannya ialah untuk melihat seberapa pengaruh model untuk melakukan klasifikasi. Selain itu bisa juga dari sudut pandang bisnis, dalam kasus *real* penentuan *threshold* pada nilai peluang juga dikaitkan dengan beberapa faktor, misalnya *revenue* pelanggan.
+
+Cobalah lihat nilai peluang bahwa suatu pelanggan masuk pada kelas target tertentu !
+
+Begini :
+```{r}
+#membuat tabel klasifikasi
+tab_train = table(train2$REKOMENDASI_TINDAK_LANJUT, train2$ClassPredicted)
+round((sum(diag(tab_train))/sum(tab_train))*100,4)
+test$ClassPredicted = predict(multinom_model, newdata = testing, "class")
+test$score = df2$max
+tab_test = table(test$REKOMENDASI_TINDAK_LANJUT, test$ClassPredicted)
+round((sum(diag(tab_test))/sum(tab_test))*100,4)
+```
+
+
+---
+
+## Kuis
+
+#### 3.1
+Misalkan kamu diberikan vektor `A = c(4, 6, 9, 13)` dan `B = c(5, 6, 7, 8)`.
+
+Pilihlah kode di bawah ini untuk menunjukkan *entry* yang ada pada vektor A tidak terdapat pada vektor B.
+
+**Pilihan**
+
+- [ ] `unique(A, B)`
+- [ ] `diff(A, B)`
+- [x] `setdiff(A, B)`
+- [ ] tidak ada yang benar
+
+Gini :
+```{r}
+A = c(4, 6, 9, 13)
+B = c(5, 6, 7, 8)
+
+unique(A, B)
+
+setdiff(A, B)
+```
+
+
+#### 3.2
+Diberikan *data frame* berikut:
+
+| user_id | Jenis.Kelamin | Pekerjaan | Pendidikan |
+| :-----: | :-----------: | :-------: | :--------: |
+| 1893468 | Laki -laki    | Dosen     | S2         |
+| 1893763 | Perempuan     | Buruh     | SMA        |
+| 1793624 | Laki -laki    | Dosen     | S3         |
+| 1657829 | Laki -laki    | Guru      | S1         |
+
+
+Manakah kode pada pilihan jawaban berikut yang dapat digunakan untuk memilih data di atas dengan `Jenis.Kelamin` "Lak-laki" dan dan `Pekerjaan` "Dosen" ?
+
+**Pilihan**
+
+- [ ] `subset(df, Jenis.Kelamin == "Laki-laki" & Pekerjaan == "Dosen")`
+- [ ] `filter(df, Jenis.Kelamin == "Laki-laki", Pekerjaan == "Dosen")`
+- [ ] Hanya A saja
+- [x] A dan B benar
+
+
+#### 3.3
+Kamu memiliki vektor `A = c(4, "NA", 9)`.
+
+Apakah output dari `sum(is.na(A))` ?
+
+**Pilihan**
+
+- [ ] 5
+- [ ] 1
+- [x] 0
+- [ ] tidak ada yang benar
+
+Gini :
+```{r}
+A = c(4, "NA", 9)
+
+sum(is.na(A))
+```
+
+
+#### 3.4
+Ukuran keragaman 2 peubah/variabel/*feature* pada suatu *dataset* dapat ditinjau dengan cara :
+
+**Pilihan**
+
+- [ ] Melihat grafik boxplot
+- [x] Melihat grafik kovariansi
+- [ ] Melihat grafik variansi
+- [ ] Melihat grafik biplot
+
+#### 3.5
+Ukuran variabilitas dari suatu data dapat ditinjau melalui :
+
+**Pilihan**
+
+- [ ] Variansi dan standar deviasi
+- [ ] Jangkauan dan jangkauan antar kuartil
+- [ ] Jangkauan, jangkauan antar kuartil, variansi, standar deviasi, koefisien variasi, dan korelasi
+- [x] Jangkauan, jangkauan antar kuartil, variansi, standar deviasi, dan koefisien variasi
+
+#### 3.6
+Misalkan kamu memiliki dataframe `A = data.frame(kolom1 = 1:2)` dan `B = data.frame(kolom2 = 3)`.
+
+Pilihlah jawaban yang tepat untuk membentuk dataframe seperti berikut:
+
+| kolom1 |
+| -----: |
+| 1      |
+| 2      |
+| 3      |
+
+**Pilihan**
+
+- [ ] `join(A, B, on = "kolom1")`
+- [ ] `A + B`
+- [x] `rbind(A, B)`
+- [ ] `c(A, B)`
+
+Gini :
+```{r}
+A = data.frame(kolom1 = 1:2)
+B = data.frame(kolom1 = 3)
+
+rbind(A, B)
+c(A, B)
+```
+
+
+#### 3.7
+Coba dilakukan pengecekan untuk hasil dari keluaran berikut :
+```
+angka <- seq(1, 10)
+for (nilai in angka) {
+	if (nilai %% 2){
+		print(nilai)
+	}
+}
+```
+Apakah merupakan bilangan ganjil dari 1-10 ?
+
+**Pilihan**
+
+- [ ] tidak
+- [ ] *input is error*
+- [x] ya
+- [ ] *no output can be showed*
+
+Gini :
+```{r}
+angka <- seq(1, 10)
+for (nilai in angka) {
+	if (nilai %% 2){
+		print(nilai)
+	}
+}
+```
+
+
+#### 3.8
+Manakah metode berikut ini yang menjadikan vektor memiliki nilai berulang ?
+
+**Pilihan**
+
+- [ ] `reserve()`
+- [x] `rep()`
+- [ ] `repeal()`
+- [ ] `view()`
+
+
+#### 3.9
+Manakah pilihan berikut ini yang digunakan untuk mendapatkan *quantil* dari suatu *dataset* ?
+
+**Pilihan**
+
+- [x] `quantile()`
+- [ ] `plot()`
+- [ ] `barchart()`
+- [ ] `barplot()`
+
+
+#### 3.10
+Perintah apakah yang digunakan untuk menampilkan visualisasi *boxplot* pada vektor `A` yang bernilai numerik ?
+
+**Pilihan**
+
+- [ ] `boxplot(A, color = "BLUE")`
+- [ ] `boxplot(A, color_names = "blue")`
+- [ ] `boxplot(A, color = "blue")`
+- [x] `boxplot(A, col = "blue")`
